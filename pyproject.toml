@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "bohr-labels"
+version = "0.1.0"
+description = ""
+authors = ["hlib <hlibbabii@gmail.com>"]
+packages = [
+    { include = "bohrlabels" },
+]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+Jinja2 = "^2.11.3"
+
+[tool.poetry.dev-dependencies]
+pre-commit = "^2.15.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
