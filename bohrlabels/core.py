@@ -1,10 +1,11 @@
+from abc import abstractmethod
 from dataclasses import dataclass
 from enum import Flag, auto
 from functools import reduce
-from typing import List, Set, Type, TypeVar, Union
+from typing import List, Optional, Set, Type, TypeVar, Union
 
 
-class Label(Flag):
+class Label(int, Flag):
     def __or__(self, other: Union["LabelSet", "Label"]):
         if type(self) == type(other):
             return super().__or__(other)
@@ -15,8 +16,8 @@ class Label(Flag):
         return f"{self.__class__.__name__}.{self.name}"
 
     @classmethod
-    def hierarchy_root(cls: Type["Label"]) -> "Label":
-        return reduce(lambda x, y: x | y, cls)
+    def hierarchy_root(cls: Type["Label"]) -> "NumericLabel":
+        return NumericLabel(reduce(lambda x, y: x | y, cls), cls)
 
     def is_ancestor_of(self, child: "Label") -> bool:
         if child is None:
@@ -31,8 +32,65 @@ class Label(Flag):
 
         return self.is_ancestor_of(child.parent())
 
+    @abstractmethod
+    def parent(self):
+        pass
+
+    def to_numeric_label(self) -> "NumericLabel":
+        return NumericLabel(self.value, type(self))
+
 
 LabelSubclass = TypeVar("LabelSubclass", bound=Label)
+
+
+@dataclass(frozen=True)
+class NumericLabel:
+    label: int
+    hierarchy: Type[LabelSubclass]
+
+    def __or__(self, other: "NumericLabel") -> "NumericLabel":
+        if not isinstance(other, NumericLabel):
+            raise ValueError(f"Cannot | NumericLabel to {type(other)}")
+        if self.hierarchy != other.hierarchy:
+            raise ValueError(f"Cannot | numerioc labels from different hieararchies")
+
+        return NumericLabel(self.label | other.label, self.hierarchy)
+
+    def __and__(self, other: "NumericLabel") -> "NumericLabel":
+        if not isinstance(other, NumericLabel):
+            raise ValueError(f"Cannot & NumericLabel to {type(other)}")
+        if self.hierarchy != other.hierarchy:
+            raise ValueError(f"Cannot & numerioc labels from different hieararchies")
+
+        return NumericLabel(self.label & other.label, self.hierarchy)
+
+    def is_ancestor_of(self, child: "NumericLabel") -> bool:
+        if isinstance(child, Label):
+            child = child.to_numeric_label()
+        if child is None:
+            return False
+        if child.hierarchy == self.hierarchy:
+            return (
+                self.label | child.label == self.label
+                and self.label & child.label == child.label
+            )
+
+        return self.is_ancestor_of(child.parent())
+
+    def parent(self) -> Optional["NumericLabel"]:
+        label = next(iter(self.hierarchy))
+        if not hasattr(label, "parent"):
+            raise ValueError(
+                "Incorrectly defined class. All classes inherited from label must have method 'parent()'"
+            )
+        l = label.parent()
+        return l.to_numeric_label() if l is not None else None
+
+    def hierarchy_root(self) -> "NumericLabel":
+        return self.hierarchy.hierarchy_root()
+
+    def to_commit_labels_set(self) -> List[LabelSubclass]:
+        return [sus.name for sus in self.hierarchy if self.label & sus.value]
 
 
 @dataclass(frozen=True)
@@ -91,60 +149,70 @@ class LabelSet:
 
     >>> label_set = LabelSet.of(A.A2, B.B21)
     >>> label_set
-    {A.A2, B.B21}
+    {NumericLabel(label=24, hierarchy=<enum 'A'>), NumericLabel(label=2, hierarchy=<enum 'B'>)}
     >>> label_set | C.C41
-    {A.A2, B.B21, C.C41}
+    {NumericLabel(label=24, hierarchy=<enum 'A'>), NumericLabel(label=2, hierarchy=<enum 'B'>), NumericLabel(label=1, hierarchy=<enum 'C'>)}
     >>> label_set | A.A21
-    {A.A2, B.B21}
+    {NumericLabel(label=24, hierarchy=<enum 'A'>), NumericLabel(label=2, hierarchy=<enum 'B'>)}
     >>> label_set | A.A0
-    {A.A0, B.B21}
+    {NumericLabel(label=31, hierarchy=<enum 'A'>), NumericLabel(label=2, hierarchy=<enum 'B'>)}
     >>> label_set | LabelSet.of(C.C41)
-    {A.A2, B.B21, C.C41}
+    {NumericLabel(label=24, hierarchy=<enum 'A'>), NumericLabel(label=2, hierarchy=<enum 'B'>), NumericLabel(label=1, hierarchy=<enum 'C'>)}
     >>> label_set | LabelSet.of(A.A21)
-    {A.A2, B.B21}
+    {NumericLabel(label=24, hierarchy=<enum 'A'>), NumericLabel(label=2, hierarchy=<enum 'B'>)}
 
-    >>> LabelSet.of(A.A2).distribute_into_categories([A.A3, A.A4, B.B21])
+    >>> LabelSet.of(A.A2).belongs_to([A.A3, A.A4, B.B21])
     Traceback (most recent call last):
     ...
-    ValueError: All categories should be from the same hierarchy. However you have categories from different hierarchies: A.A3 and B.B21
-    >>> LabelSet.of(C.C41).distribute_into_categories([A.A3, A.A4])
-    A.A4
-    >>> LabelSet.of(A.A42, C.C41).distribute_into_categories([A.A3, A.A4])
-    A.A4
-    >>> LabelSet.of(A.A3).distribute_into_categories([A.A3, A.A4])
-    A.A3
-    >>> LabelSet.of(A.A0).distribute_into_categories([A.A3, A.A4])
-    A.A0
-    >>> LabelSet.of(A.A2).distribute_into_categories([A.A3, A.A4])
-    A.A0
-    >>> LabelSet.of(A.A2, A.A41).distribute_into_categories([A.A3, A.A4])
-    A.A0
+    ValueError: All categories should be from the same hierarchy. However you have categories from different hierarchies: <enum 'A'> and <enum 'B'>
+    >>> LabelSet.of(C.C41).belongs_to([A.A3, A.A4])
+    NumericLabel(label=6, hierarchy=<enum 'A'>)
+    >>> LabelSet.of(A.A42, C.C41).belongs_to([A.A3, A.A4])
+    NumericLabel(label=6, hierarchy=<enum 'A'>)
+    >>> LabelSet.of(A.A3).belongs_to([A.A3, A.A4])
+    NumericLabel(label=1, hierarchy=<enum 'A'>)
+    >>> LabelSet.of(A.A0).belongs_to([A.A3, A.A4])
+    NumericLabel(label=31, hierarchy=<enum 'A'>)
+    >>> LabelSet.of(A.A2).belongs_to([A.A3, A.A4])
+    NumericLabel(label=31, hierarchy=<enum 'A'>)
+    >>> LabelSet.of(A.A2, A.A41).belongs_to([A.A3, A.A4])
+    NumericLabel(label=31, hierarchy=<enum 'A'>)
     """
 
-    labels: Set[LabelSubclass]
+    labels: Set[NumericLabel]
 
     def __post_init__(self):
         if not isinstance(self.labels, frozenset):
             raise ValueError(f"Labels should be a frozenset but is {type(self.labels)}")
 
+        for label in self.labels:
+            if not isinstance(label, NumericLabel):
+                raise AssertionError()
+
     @classmethod
-    def of(cls, *labels: LabelSubclass):
+    def of(cls, *labels: Union[LabelSubclass, NumericLabel]):
         res = set()
         for label in labels:
             res = LabelSet._add_label(res, label)
         return cls(frozenset(res))
 
     def __repr__(self) -> str:
-        sorted_labels = sorted(self.labels, key=lambda l: l.__class__.__name__)
+        sorted_labels = sorted(self.labels, key=lambda l: l.hierarchy.__name__)
         return "{" + ", ".join(map(lambda l: repr(l), sorted_labels)) + "}"
 
     @staticmethod
     def _add_label(
-        labels: Set[LabelSubclass], label_to_add: LabelSubclass
+        labels: Set[NumericLabel], label_to_add: Union[LabelSubclass, NumericLabel]
     ) -> Set[LabelSubclass]:
+        if isinstance(label_to_add, Label):
+            label_to_add = label_to_add.to_numeric_label()
+        elif isinstance(label_to_add, NumericLabel):
+            pass
+        else:
+            raise AssertionError(label_to_add)
         flag_to_remove = None
         for flag in labels:
-            if type(flag) == type(label_to_add):
+            if flag.hierarchy == label_to_add.hierarchy:
                 flag_to_remove = flag
                 label_to_add = label_to_add | flag
                 break
@@ -162,31 +230,76 @@ class LabelSet:
 
         return LabelSet(frozenset(new_label_set))
 
-    def distribute_into_categories(
-        self, categories: List[LabelSubclass]
-    ) -> LabelSubclass:
-        if not categories:
-            raise ValueError("List of categories cannot be empty")
-        categories_union = categories[0]
+    @staticmethod
+    def get_label_union(labels: List[NumericLabel]) -> NumericLabel:
+        label_union = labels[0]
 
-        for category in categories:
-            if type(category) != type(categories[0]):
+        for label in labels:
+            if label.hierarchy != labels[0].hierarchy:
                 raise ValueError(
                     "All categories should be from the same hierarchy. "
-                    f"However you have categories from different hierarchies: {categories[0]} and {category}"
+                    f"However you have categories from different hierarchies: {labels[0].hierarchy} and {label.hierarchy}"
                 )
-            categories_union |= category
+            label_union |= label
+        return label_union
 
-        result = type(categories_union).hierarchy_root()
+    def belongs_to(
+        self, categories: List[Union[LabelSubclass, NumericLabel]]
+    ) -> NumericLabel:
+        if not categories:
+            raise ValueError("List of categories cannot be empty")
+        categories: List[NumericLabel] = list(
+            map(
+                lambda c: (c.to_numeric_label() if isinstance(c, Label) else c),
+                categories,
+            )
+        )
+        category_union: NumericLabel = LabelSet.get_label_union(categories)
+
+        result = category_union.hierarchy_root()
         for label in self.labels:
-            if categories_union.is_ancestor_of(label):
-                while type(label) != type(categories_union):
+            if category_union.is_ancestor_of(label):
+                while label.hierarchy != category_union.hierarchy:
                     label = label.parent()
                 for category in categories:
-                    if category & label:
+                    if category.label & label.label:
                         result &= category | label
 
         return result
+
+
+def belongs_to(
+    label: NumericLabel, categories: List[Union[LabelSubclass, NumericLabel]]
+) -> NumericLabel:
+    return LabelSet.of(label).belongs_to(categories)
+
+
+def to_numeric_label(
+    label: Union[int, LabelSubclass, NumericLabel], hierarchy: Type[LabelSubclass]
+) -> NumericLabel:
+    """
+    >>> from bohrlabels.labels import CommitLabel, SStuB
+    >>> to_numeric_label(1, CommitLabel)
+    NumericLabel(label=1, hierarchy=<enum 'CommitLabel'>)
+    >>> to_numeric_label(CommitLabel.InitialCommit, CommitLabel)
+    NumericLabel(label=CommitLabel.InitialCommit, hierarchy=<enum 'CommitLabel'>)
+    >>> to_numeric_label(1., CommitLabel)
+    Traceback (most recent call last):
+    ...
+    ValueError: Invalid label type: <class 'float'>
+    """
+    if isinstance(label, Label):
+        if hierarchy != type(label):
+            raise ValueError(
+                f"Hierarchy mismatch. Passed label is {label}, passed hierarchy is {hierarchy}"
+            )
+        return label.to_numeric_label()
+    elif isinstance(label, int):
+        return NumericLabel(label, hierarchy)
+    elif isinstance(label, NumericLabel):
+        return label
+    else:
+        raise ValueError(f"Invalid label type: {type(label)}")
 
 
 Labels = Union[Label, LabelSet]
