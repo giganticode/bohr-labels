@@ -90,7 +90,35 @@ class NumericLabel:
         return self.hierarchy.hierarchy_root()
 
     def to_commit_labels_set(self) -> List[LabelSubclass]:
-        return [sus.name for sus in self.hierarchy if self.label & sus.value]
+        """
+        >>> from bohrlabels.labels import CommitLabel
+        >>> NumericLabel(~CommitLabel.Refactoring, CommitLabel).to_commit_labels_set()
+        ['BugFix', 'CopyChangeAdd', 'DocChange', 'Feature', 'InitialCommit', 'Merge', 'TestChange', 'VersionBump']
+        >>> NumericLabel(CommitLabel.Refactoring, CommitLabel).to_commit_labels_set()
+        ['Refactoring']
+        >>> NumericLabel(CommitLabel.CommitLabel, CommitLabel).to_commit_labels_set()
+        ['CommitLabel']
+        >>> NumericLabel(CommitLabel.Refactoring|CommitLabel.Merge, CommitLabel).to_commit_labels_set()
+        ['Merge', 'Refactoring']
+        >>> NumericLabel(CommitLabel.Refactoring|CommitLabel.NonBugFix, CommitLabel).to_commit_labels_set()
+        ['NonBugFix']
+        """
+        s = set()
+        for to_add in self.hierarchy:
+            if self.label & to_add.value and (to_add.value | self.label) == self.label:
+                rems = []
+                add = True
+                for (added_name, added_value) in s:
+                    if (added_value | to_add.value) == to_add.value:
+                        rems.append((added_name, added_value))
+                    elif (added_value & to_add.value) == to_add.value:
+                        add = False
+                        break
+                if add:
+                    s.add((to_add.name, to_add.value))
+                for rem in rems:
+                    s.remove(rem)
+        return sorted(map(lambda x: x[0], s))
 
 
 @dataclass(frozen=True)
