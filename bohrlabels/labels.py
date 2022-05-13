@@ -11,23 +11,39 @@ class CommitLabel(Label):
     CriticalBugFix = auto()
     OtherSeverityLevelBugFix = auto()
     BugFix = MinorBugFix | MajorBugFix | CriticalBugFix | OtherSeverityLevelBugFix
-    DocAdd = auto()
+    ChangeLogAdd = auto()
+    OtherDocAdd = auto()
+    DocAdd = ChangeLogAdd | OtherDocAdd
     DocSpellingFix = auto()
-    DocChange = DocAdd | DocSpellingFix
-    TestAdd = auto()
-    TestFix = auto()
-    TestChange = TestAdd | TestFix
+    DocRemove = auto()
+    DocFix = auto()
+    DocChange = DocAdd | DocSpellingFix | DocRemove | DocFix
     Reformatting = auto()
-    OtherRefactoring = auto()
-    Refactoring = Reformatting | OtherRefactoring
-    CopyChangeAdd = auto()
-    Feature = auto()
+    RemoveUnused = auto()
+    OtherMinorRefactoring = auto()
+    MinorRefactoring = Reformatting | RemoveUnused | OtherMinorRefactoring
+    NormalRefactoring = auto()
+    MajorRefactoring = auto()
+    Refactoring = MinorRefactoring | NormalRefactoring | MajorRefactoring
+    CopyChange = auto()
+    MajorFeature = auto()
+    Enhancement = auto()
+    Feature = MajorFeature | Enhancement
     InitialCommit = auto()
     ProjectVersionBump = auto()
     DependencyVersionBump = auto()
-    VersionBump = ProjectVersionBump | DependencyVersionBump
+    DependencyRemove = auto()
+    VersionBump = ProjectVersionBump | DependencyVersionBump | DependencyRemove
+    DependencyChange = auto()
+    CiMaintenance = auto()
+    GitignoreChange = auto()
+    KeybaseChange = auto()
+    TestAdd = auto()
+    TestFix = auto()
+    TestChange = TestAdd | TestFix
+    MetadataChange = auto()
     Merge = auto()
-    NonBugFix = DocChange | TestChange | Refactoring | CopyChangeAdd | Feature | InitialCommit | VersionBump | Merge
+    NonBugFix = DocChange | Refactoring | CopyChange | Feature | InitialCommit | VersionBump | DependencyChange | CiMaintenance | GitignoreChange | KeybaseChange | TestChange | MetadataChange | Merge
     CommitLabel = BugFix | NonBugFix
 
     def parent(self):
@@ -69,6 +85,17 @@ class CommitTangling(Label):
 
     def parent(self):
         return CommitLabel.CommitLabel
+
+
+class CommitSize(Label):
+    Huge = auto()
+    Normal = auto()
+    OneLine = auto()
+    Empty = auto()
+    CommitSize = Huge | Normal | OneLine | Empty
+
+    def parent(self):
+        return CommitTangling.CommitTangling
 
 
 class MatchLabel(Label):
