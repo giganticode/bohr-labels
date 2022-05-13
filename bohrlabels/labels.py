@@ -17,7 +17,9 @@ class CommitLabel(Label):
     TestAdd = auto()
     TestFix = auto()
     TestChange = TestAdd | TestFix
-    Refactoring = auto()
+    Reformatting = auto()
+    OtherRefactoring = auto()
+    Refactoring = Reformatting | OtherRefactoring
     CopyChangeAdd = auto()
     Feature = auto()
     InitialCommit = auto()
@@ -30,6 +32,15 @@ class CommitLabel(Label):
 
     def parent(self):
         return None
+
+
+class CommitType(Label):
+    ConcurrencyBugFix = auto()
+    OtherBugFix = auto()
+    CommitType = ConcurrencyBugFix | OtherBugFix
+
+    def parent(self):
+        return CommitLabel.BugFix
 
 
 class SStuB(Label):
@@ -48,7 +59,7 @@ class SStuB(Label):
     SStuB = WrongIdentifier | WrongNumericLiteral | WrongModifier | WrongBooleanLiteral | WrongFunction | WrongOperator | MissingThrowsException
 
     def parent(self):
-        return CommitLabel.BugFix
+        return CommitType.CommitType
 
 
 class CommitTangling(Label):

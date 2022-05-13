@@ -5,6 +5,8 @@ NonBugFix: DocChange, TestChange, Refactoring, CopyChangeAdd, Feature, InitialCo
 TestChange: TestAdd, TestFix
 VersionBump: ProjectVersionBump, DependencyVersionBump
 DocChange: DocAdd, DocSpellingFix
+BugFix(CommitType): ConcurrencyBugFix, OtherBugFix
 BugFix(SStuB): WrongIdentifier, WrongNumericLiteral, WrongModifier,  WrongBooleanLiteral, WrongFunction, WrongOperator, MissingThrowsException
 WrongFunction: WrongFunctionName, TooFewArguments, TooManyArguments
 WrongOperator: WrongBinaryOperator, WrongUnaryOperator
+Refactoring: Reformatting, OtherRefactoring
