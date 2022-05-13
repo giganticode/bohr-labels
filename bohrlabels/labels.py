@@ -71,6 +71,15 @@ class CommitTangling(Label):
         return CommitLabel.CommitLabel
 
 
+class MatchLabel(Label):
+    Match = auto()
+    NoMatch = auto()
+    MatchLabel = Match | NoMatch
+
+    def parent(self):
+        return None
+
+
 class SnippetLabel(Label):
     LongMethod = auto()
     LongParameterList = auto()

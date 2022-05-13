@@ -120,6 +120,9 @@ class NumericLabel:
                     s.remove(rem)
         return sorted(map(lambda x: x[0], s))
 
+    def to_numeric_label(self) -> "NumericLabel":
+        return self
+
 
 @dataclass(frozen=True)
 class LabelSet:
