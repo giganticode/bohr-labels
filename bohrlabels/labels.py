@@ -6,11 +6,9 @@ from bohrlabels.core import Label
 
 
 class CommitLabel(Label):
-    MinorBugFix = auto()
-    MajorBugFix = auto()
-    CriticalBugFix = auto()
-    OtherSeverityLevelBugFix = auto()
-    BugFix = MinorBugFix | MajorBugFix | CriticalBugFix | OtherSeverityLevelBugFix
+    ConcurrencyBugFix = auto()
+    OtherBugFix = auto()
+    BugFix = ConcurrencyBugFix | OtherBugFix
     ChangeLogAdd = auto()
     OtherDocAdd = auto()
     DocAdd = ChangeLogAdd | OtherDocAdd
@@ -50,10 +48,12 @@ class CommitLabel(Label):
         return None
 
 
-class CommitType(Label):
-    ConcurrencyBugFix = auto()
-    OtherBugFix = auto()
-    CommitType = ConcurrencyBugFix | OtherBugFix
+class BugSeverity(Label):
+    MinorBugFix = auto()
+    MajorBugFix = auto()
+    CriticalBugFix = auto()
+    OtherSeverityLevelBugFix = auto()
+    BugSeverity = MinorBugFix | MajorBugFix | CriticalBugFix | OtherSeverityLevelBugFix
 
     def parent(self):
         return CommitLabel.BugFix
@@ -75,7 +75,7 @@ class SStuB(Label):
     SStuB = WrongIdentifier | WrongNumericLiteral | WrongModifier | WrongBooleanLiteral | WrongFunction | WrongOperator | MissingThrowsException
 
     def parent(self):
-        return CommitType.CommitType
+        return BugSeverity.BugSeverity
 
 
 class CommitTangling(Label):
